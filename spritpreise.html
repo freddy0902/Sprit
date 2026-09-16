@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Spritpreise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-top:#15171b;
+    --bg-bottom:#0b0c0e;
+    --panel:#0e1013;
+    --bezel:#25282f;
+    --amber:#ffb200;
+    --amber-dim: rgba(255,178,0,.35);
+    --amber-glow: rgba(255,178,0,.55);
+    --text-soft:#c4c9d1;
+    --text-muted:#7d8490;
+    --ok:#5fd68a;
+    --err:#e5675f;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    background:linear-gradient(180deg,var(--bg-top),var(--bg-bottom));
+    font-family:'Inter',system-ui,sans-serif;
+    color:var(--text-soft);
+    -webkit-font-smoothing:antialiased;
+    padding:env(safe-area-inset-top,0) 18px calc(env(safe-area-inset-bottom,0) + 18px);
+  }
+  .wrap{
+    width:100%;
+    max-width:420px;
+    padding-top:36px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+  .title{
+    font-size:13px;
+    color:var(--text-muted);
+    letter-spacing:.02em;
+    margin:0 4px 4px;
+  }
+  .sign{
+    position:relative;
+    background:var(--panel);
+    border:1px solid var(--bezel);
+    border-radius:8px;
+    padding:20px 22px 16px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.04),
+      0 14px 28px -16px rgba(0,0,0,.7);
+    overflow:hidden;
+  }
+  .sign::before{
+    content:'';
+    position:absolute;
+    top:0; left:14px; right:14px; height:2px;
+    background:linear-gradient(90deg,transparent,var(--amber-dim),transparent);
+  }
+  .sign-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .station{
+    font-size:15px;
+    font-weight:600;
+    color:var(--text-soft);
+  }
+  .place{
+    font-size:12px;
+    color:var(--text-muted);
+    margin-left:6px;
+    font-weight:400;
+  }
+  .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--text-muted);
+    flex-shrink:0;
+    transition:background .3s ease;
+  }
+  .dot[data-state="ok"]{background:var(--ok);}
+  .dot[data-state="error"]{background:var(--err);}
+  .dot[data-state="loading"]{
+    background:var(--amber);
+    animation:pulse 1.1s ease-in-out infinite;
+  }
+  .price-row{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .price{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:clamp(44px,15vw,60px);
+    line-height:1;
+    color:var(--amber);
+    letter-spacing:.5px;
+    text-shadow:0 0 14px var(--amber-glow), 0 0 2px rgba(255,178,0,.7);
+    font-variant-numeric:tabular-nums;
+  }
+  .price.loading{opacity:.4; animation:flicker 1.4s ease-in-out infinite;}
+  .unit{
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.06em;
+    color:var(--text-muted);
+    text-transform:uppercase;
+    padding-bottom:8px;
+  }
+  .meta{
+    font-size:12px;
+    color:var(--text-muted);
+    min-height:16px;
+  }
+  .addr{
+    font-size:11px;
+    color:var(--text-muted);
+    opacity:.7;
+    margin-top:2px;
+  }
+  .src{
+    font-size:11px;
+    margin-top:6px;
+  }
+  .src a{
+    color:var(--amber);
+    text-decoration:none;
+    opacity:.85;
+  }
+  .src a:active{opacity:.6;}
+  button#refresh-btn{
+    appearance:none;
+    border:1px solid var(--bezel);
+    background:#15181c;
+    color:var(--text-soft);
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    font-weight:500;
+    padding:13px 16px;
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    cursor:pointer;
+    transition:background .15s ease, transform .1s ease;
+  }
+  button#refresh-btn:active{
+    background:#1b1f24;
+    transform:scale(.985);
+  }
+  button#refresh-btn svg{
+    width:15px;height:15px;
+    stroke:var(--amber);
+  }
+  button#refresh-btn.spinning svg{animation:spin .9s linear infinite;}
+  .footnote{
+    text-align:center;
+    font-size:11px;
+    color:var(--text-muted);
+    opacity:.65;
+    margin-top:2px;
+    line-height:1.5;
+  }
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @keyframes flicker{0%,100%{opacity:.4;}45%{opacity:.15;}55%{opacity:.5;}}
+  @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  @media (prefers-reduced-motion: reduce){
+    .dot[data-state="loading"], .price.loading, button#refresh-btn.spinning svg{animation:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="title">Super E5 · aktuelle Preise</p>
+
+  <div class="sign">
+    <div class="sign-head">
+      <div><span class="station">Esso</span><span class="place">Dietzenbach</span></div>
+      <div class="dot" id="dot-dietzenbach" data-state="loading"></div>
+    </div>
+    <div class="price-row">
+      <div class="price loading" id="price-dietzenbach">–,–––</div>
+      <div class="unit">Super E5 · €/l</div>
+    </div>
+    <div class="meta" id="meta-dietzenbach">Wird geladen …</div>
+    <div class="addr">Hauptstr. 7, 63128 Dietzenbach</div>
+    <div class="src" id="src-dietzenbach"></div>
+  </div>
+
+  <div class="sign">
+    <div class="sign-head">
+      <div><span class="station">12. Mann</span><span class="place">Bielefeld</span></div>
+      <div class="dot" id="dot-bielefeld" data-state="loading"></div>
+    </div>
+    <div class="price-row">
+      <div class="price loading" id="price-bielefeld">–,–––</div>
+      <div class="unit">Super E5 · €/l</div>
+    </div>
+    <div class="meta" id="meta-bielefeld">Wird geladen …</div>
+    <div class="addr">Jakob-Kaiser-Str. 28, 33615 Bielefeld</div>
+    <div class="src" id="src-bielefeld"></div>
+  </div>
+
+  <button id="refresh-btn" aria-label="Preise aktualisieren">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>
+    </svg>
+    Aktualisieren
+  </button>
+
+  <p class="footnote">Jede Aktualisierung sucht live nach dem aktuell gemeldeten Preis. Basis: Tankpreis-Portale mit MTS-K-Daten (Bundeskartellamt). Über "Quelle prüfen" siehst du die Originalseite – Preis vor dem Tanken an der Zapfsäule bestätigen.</p>
+</div>
+
+<script>
+  const STATIONS = [
+    { key:'dietzenbach', address:'ESSO Tankstelle, Hauptstr. 7, 63128 Dietzenbach' },
+    { key:'bielefeld',   address:'Tankstelle 12. Mann, Jakob-Kaiser-Straße 28, 33615 Bielefeld' }
+  ];
+
+  function formatPrice(p){
+    if(p===null || p===undefined || isNaN(p)) return '–,–––';
+    return Number(p).toLocaleString('de-DE',{minimumFractionDigits:3,maximumFractionDigits:3});
+  }
+
+  function buildPrompt(address){
+    const today = new Date().toLocaleDateString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit'});
+    return 'Du fuehrst zuerst mindestens eine Websuche durch, bevor du antwortest. Antworte NIEMALS aus dem Gedaechtnis oder mit einem geschaetzten Wert - nur mit einem Preis, den du gerade in einer Websuche gefunden hast.\n\n' +
+      'Aufgabe: Finde den aktuell gemeldeten Preis fuer Super E5 (95 Oktan, Super Bleifrei E5) in Euro pro Liter an GENAU dieser Tankstelle (Adresse ist entscheidend, verwechsle sie nicht mit einer anderen Filiale derselben Marke):\n' +
+      address + '\n\n' +
+      'Suche gezielt nach dieser Adresse, z. B. mit Suchbegriffen wie "' + address + ' Super E5 Preis". Nutze Tankpreis-Vergleichsseiten, die auf den offiziellen MTS-K-Daten (Bundeskartellamt) basieren, z. B. tankpreise.de, clever-tanken.de, mehr-tanken.de oder billig-tanken.de. Bevorzuge die Quelle mit dem juengsten Aktualisierungszeitstempel. Heutiges Datum: ' + today + '.\n\n' +
+      'Antworte ausschliesslich mit einem einzigen JSON-Objekt - keine Codeblock-Markierungen, kein Text davor oder danach. "sourceUrl" muss die exakte URL der Seite sein, von der der Preis stammt, damit man ihn nachpruefen kann.\n\n' +
+      'Format:\n' +
+      '{"price": 1.979, "reportedAt": "13:43", "source": "tankpreise.de", "sourceUrl": "https://..."}\n\n' +
+      'Falls kein aktueller Preis fuer genau diese Adresse auffindbar ist:\n' +
+      '{"price": null, "reportedAt": null, "source": null, "sourceUrl": null}';
+  }
+
+  function isPlausible(price){
+    return typeof price === 'number' && isFinite(price) && price > 1.2 && price < 2.6;
+  }
+
+  async function callClaude(prompt){
+    const sample = await claude.use('sample');
+    if(!sample) throw new Error('sample_unavailable');
+    return await sample.json(prompt);
+  }
+
+  async function saveCache(key, data){
+    try{
+      const db = await claude.use('db');
+      if(!db) return;
+      await db.doc('cache/' + key).set(data);
+    }catch(e){}
+  }
+
+  async function loadCache(key){
+    try{
+      const db = await claude.use('db');
+      if(!db) return null;
+      const snap = await db.doc('cache/' + key).get();
+      return snap.exists ? snap.data() : null;
+    }catch(e){ return null; }
+  }
+
+  async function showCacheIfAny(cfg){
+    const cached = await loadCache(cfg.key);
+    if(cached){
+      document.getElementById('price-' + cfg.key).textContent = formatPrice(cached.price);
+      document.getElementById('meta-' + cfg.key).textContent = 'Zuletzt bekannt (' + cached.fetchedAt + ' Uhr)' + (cached.source ? ' · ' + cached.source : '');
+      renderSourceLink(cfg.key, cached.sourceUrl);
+    }
+  }
+
+  function renderSourceLink(key, url){
+    const el = document.getElementById('src-' + key);
+    if(!el) return;
+    if(url){
+      el.innerHTML = '<a href="' + url + '" target="_blank" rel="noopener">Quelle pruefen ↗</a>';
+    } else {
+      el.textContent = '';
+    }
+  }
+
+  async function refreshStation(cfg){
+    const priceEl = document.getElementById('price-' + cfg.key);
+    const metaEl  = document.getElementById('meta-' + cfg.key);
+    const dotEl   = document.getElementById('dot-' + cfg.key);
+
+    dotEl.dataset.state = 'loading';
+    priceEl.classList.add('loading');
+
+    try{
+      const result = await callClaude(buildPrompt(cfg.address));
+      priceEl.classList.remove('loading');
+
+      if(result.price !== null && result.price !== undefined && isPlausible(result.price)){
+        priceEl.textContent = formatPrice(result.price);
+        const now = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+        metaEl.textContent = (result.reportedAt ? 'Preisstand ' + result.reportedAt + ' Uhr' : 'Abgerufen ' + now) + (result.source ? ' · ' + result.source : '');
+        dotEl.dataset.state = 'ok';
+        await saveCache(cfg.key, { price: result.price, source: result.source, sourceUrl: result.sourceUrl, fetchedAt: now });
+        renderSourceLink(cfg.key, result.sourceUrl);
+      } else {
+        dotEl.dataset.state = 'error';
+        metaEl.textContent = result.price !== null && result.price !== undefined ? 'Preis wirkt unplausibel, verworfen' : 'Kein aktueller Preis gefunden';
+        await showCacheIfAny(cfg);
+      }
+    }catch(e){
+      priceEl.classList.remove('loading');
+      dotEl.dataset.state = 'error';
+      metaEl.textContent = 'Abruf fehlgeschlagen';
+      await showCacheIfAny(cfg);
+    }
+  }
+
+  async function refreshAll(){
+    const btn = document.getElementById('refresh-btn');
+    btn.classList.add('spinning');
+    btn.disabled = true;
+    await Promise.all(STATIONS.map(refreshStation));
+    btn.classList.remove('spinning');
+    btn.disabled = false;
+  }
+
+  document.getElementById('refresh-btn').addEventListener('click', refreshAll);
+
+  window.addEventListener('DOMContentLoaded', async () => {
+    await Promise.all(STATIONS.map(showCacheIfAny));
+    refreshAll();
+  });
+</script>
+</body>
+</html>

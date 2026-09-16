@@ -1,0 +1,7 @@
+{
+  "generatedAt": null,
+  "stations": {
+    "dietzenbach": { "label": "Esso", "place": "Dietzenbach", "status": null, "e5": null },
+    "bielefeld": { "label": "12. Mann", "place": "Bielefeld", "status": null, "e5": null }
+  }
+}
