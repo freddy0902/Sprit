@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-title" content="Spritpreise" />
+<meta name="apple-mobile-web-app-title" content="Frederiks Benzinpreise" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
-<title>Spritpreise</title>
+<title>Frederiks Benzinpreise</title>
 <style>
 :root{
   --bg:#F2F2F7;
@@ -202,9 +202,13 @@ h1{
   transition:transform .12s ease, opacity .12s ease;
 }
 #refresh-btn:active{transform:scale(.97); opacity:.85;}
-#refresh-btn:disabled{opacity:.5;}
 #refresh-btn svg{width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round;}
-#refresh-btn.spinning svg{animation:spin .8s linear infinite;}
+#refresh-btn .icon-check{display:none;}
+#refresh-btn.spinning .icon-refresh{animation:spin .8s linear infinite;}
+#refresh-btn.done{background:var(--green);}
+#refresh-btn.done .icon-refresh{display:none;}
+#refresh-btn.done .icon-check{display:block;}
+#refresh-btn.failed{background:var(--red);}
 @keyframes spin{to{transform:rotate(360deg);}}
 
 #generated-note{
@@ -233,7 +237,7 @@ h1{
 <div class="wrap">
 
   <header>
-    <h1>Spritpreise</h1>
+    <h1>Frederiks Benzinpreise</h1>
     <p class="subtitle">Super E5</p>
   </header>
 
@@ -268,10 +272,13 @@ h1{
   </div>
 
   <button id="refresh-btn" aria-label="Preise neu laden">
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg class="icon-refresh" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>
     </svg>
-    Neu laden
+    <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 6 9 17l-5-5"/>
+    </svg>
+    <span id="btn-label">Neu laden</span>
   </button>
 
   <p id="generated-note">–</p>
@@ -330,28 +337,69 @@ function markCheapest(prices){
   document.getElementById('card-' + best).dataset.cheapest = 'true';
 }
 
-function renderGeneratedAt(iso){
+/* --- Zeitstempel: relativ ("vor 4 Min."), damit man sieht, wie frisch die Daten sind --- */
+let lastGeneratedAt = null;
+
+function renderGeneratedAt(){
   const note = document.getElementById('generated-note');
-  if(!iso){
+
+  if(!lastGeneratedAt){
     note.textContent = 'Noch keine Daten – Workflow einmal manuell ausführen.';
     return;
   }
-  const d = new Date(iso);
-  const time = d.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-  const date = d.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'});
-  note.textContent = 'Stand: ' + date + ', ' + time + ' Uhr';
+
+  const d = new Date(lastGeneratedAt);
+  const mins = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
+
+  let rel;
+  if(mins < 1)        rel = 'gerade eben aktualisiert';
+  else if(mins === 1) rel = 'vor 1 Minute aktualisiert';
+  else if(mins < 60)  rel = 'vor ' + mins + ' Minuten aktualisiert';
+  else if(mins < 120) rel = 'vor 1 Stunde aktualisiert';
+  else if(mins < 1440) rel = 'vor ' + Math.floor(mins / 60) + ' Stunden aktualisiert';
+  else {
+    const date = d.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'});
+    const time = d.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+    rel = 'Stand: ' + date + ', ' + time + ' Uhr';
+  }
+  note.textContent = rel;
+}
+
+/* --- Button-Rückmeldung --- */
+const btn = document.getElementById('refresh-btn');
+const btnLabel = document.getElementById('btn-label');
+let resetTimer = null;
+
+function setButton(state){
+  clearTimeout(resetTimer);
+  btn.classList.remove('spinning', 'done', 'failed');
+
+  if(state === 'loading'){
+    btn.classList.add('spinning');
+    btnLabel.textContent = 'Wird geladen …';
+  } else if(state === 'done'){
+    btn.classList.add('done');
+    btnLabel.textContent = 'Aktualisiert';
+    resetTimer = setTimeout(() => setButton('idle'), 1600);
+  } else if(state === 'failed'){
+    btn.classList.add('failed');
+    btnLabel.textContent = 'Fehlgeschlagen';
+    resetTimer = setTimeout(() => setButton('idle'), 2400);
+  } else {
+    btnLabel.textContent = 'Neu laden';
+  }
 }
 
 async function loadPrices(){
-  const btn = document.getElementById('refresh-btn');
-  btn.classList.add('spinning');
-  btn.disabled = true;
+  const started = Date.now();
+  setButton('loading');
 
   STATION_KEYS.forEach(k => {
     document.getElementById('price-' + k).classList.add('loading');
     setPill(k, '', 'Lädt …');
   });
 
+  let ok = true;
   try{
     // immer frisch laden: GitHub Pages cached data/prices.json sonst bis zu 10 Minuten
     const res = await fetch('data/prices.json?t=' + Date.now(), {cache:'no-store'});
@@ -363,21 +411,27 @@ async function loadPrices(){
       prices[key] = renderStation(key, data.stations ? data.stations[key] : null);
     });
     markCheapest(prices);
-    renderGeneratedAt(data.generatedAt);
+    lastGeneratedAt = data.generatedAt || null;
+    renderGeneratedAt();
   }catch(e){
+    ok = false;
     STATION_KEYS.forEach(key => {
       document.getElementById('price-' + key).classList.remove('loading');
       setPill(key, 'error', 'Fehler');
     });
     document.getElementById('generated-note').textContent = 'Preise konnten nicht geladen werden.';
-  }finally{
-    btn.classList.remove('spinning');
-    btn.disabled = false;
   }
+
+  // Spinner mindestens 500 ms zeigen, sonst wirkt der Tap wie ohne Wirkung
+  const wait = Math.max(0, 500 - (Date.now() - started));
+  setTimeout(() => setButton(ok ? 'done' : 'failed'), wait);
 }
 
-document.getElementById('refresh-btn').addEventListener('click', loadPrices);
+btn.addEventListener('click', loadPrices);
 window.addEventListener('DOMContentLoaded', loadPrices);
+
+// "vor X Minuten" mitlaufen lassen
+setInterval(renderGeneratedAt, 30000);
 
 // beim Zurückwechseln zur App (Home-Bildschirm-Icon) automatisch aktualisieren
 document.addEventListener('visibilitychange', () => {
