@@ -1,19 +1,19 @@
 {
-  "generatedAt": "2026-09-17T17:24:05+00:00",
+  "generatedAt": "2026-09-17T21:37:37+00:00",
   "stations": {
     "dietzenbach": {
       "label": "Esso",
       "place": "Dietzenbach",
       "address": "Hauptstr. 7, 63128 Dietzenbach",
-      "status": "open",
-      "e5": 2.329
+      "status": "closed",
+      "e5": null
     },
     "bielefeld": {
       "label": "12. Mann",
       "place": "Bielefeld",
       "address": "Jakob-Kaiser-Str. 28, 33615 Bielefeld",
-      "status": "open",
-      "e5": 2.309
+      "status": "closed",
+      "e5": null
     }
   }
 }
