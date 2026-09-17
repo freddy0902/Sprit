@@ -294,6 +294,32 @@ h1{
 <script>
 const STATION_KEYS = ['dietzenbach', 'bielefeld'];
 
+// Live-Abruf ueber den Cloudflare Worker (haelt den API-Key unter Verschluss).
+const WORKER_URL   = 'https://spritpreise.frederik-loehr.workers.dev/';
+// Rueckfallebene, falls der Worker nicht antwortet.
+const FALLBACK_URL = 'data/prices.json';
+// Letzter erfolgreicher Abruf, damit die App auch offline etwas anzeigen kann.
+const CACHE_KEY    = 'benzinpreise:last';
+
+function readCache(){
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e){ return null; }
+}
+
+function writeCache(data){
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch(e){}
+}
+
+async function fetchJson(url){
+  const res = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(), {cache:'no-store'});
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if(!data || !data.stations) throw new Error('Unerwartetes Format');
+  return data;
+}
+
 function formatPrice(p){
   if(typeof p !== 'number' || !isFinite(p)) return '–,–––';
   return p.toLocaleString('de-DE', {minimumFractionDigits:3, maximumFractionDigits:3});
@@ -343,12 +369,13 @@ function markCheapest(prices){
 
 /* --- Zeitstempel: relativ ("vor 4 Min."), damit man sieht, wie frisch die Daten sind --- */
 let lastGeneratedAt = null;
+let lastSource = 'live';   // 'live' | 'fallback' | 'cache'
 
 function renderGeneratedAt(){
   const note = document.getElementById('generated-note');
 
   if(!lastGeneratedAt){
-    note.textContent = 'Noch keine Daten – Workflow einmal manuell ausführen.';
+    note.textContent = 'Noch keine Daten vorhanden.';
     return;
   }
 
@@ -366,7 +393,7 @@ function renderGeneratedAt(){
     const time = d.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
     rel = 'Stand: ' + date + ', ' + time + ' Uhr';
   }
-  note.textContent = rel;
+  note.textContent = lastSource === 'live' ? rel : rel + ' · letzter bekannter Stand';
 }
 
 /* --- Button-Rückmeldung --- */
@@ -403,22 +430,36 @@ async function loadPrices(){
     setPill(k, '', 'Lädt …');
   });
 
-  let ok = true;
-  try{
-    // immer frisch laden: GitHub Pages cached data/prices.json sonst bis zu 10 Minuten
-    const res = await fetch('data/prices.json?t=' + Date.now(), {cache:'no-store'});
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
+  let data = null, source = null;
 
+  // 1. Live beim Worker fragen
+  try { data = await fetchJson(WORKER_URL); source = 'live'; writeCache(data); }
+  catch(e){}
+
+  // 2. Worker nicht erreichbar: zuletzt im Repo abgelegte Preise
+  if(!data){
+    try { data = await fetchJson(FALLBACK_URL); source = 'fallback'; }
+    catch(e){}
+  }
+
+  // 3. Gar kein Netz: was beim letzten Mal auf diesem Geraet ankam
+  if(!data){
+    const stored = readCache();
+    if(stored){ data = stored; source = 'cache'; }
+  }
+
+  const ok = !!data;
+
+  if(ok){
     const prices = {};
     STATION_KEYS.forEach(key => {
       prices[key] = renderStation(key, data.stations ? data.stations[key] : null);
     });
     markCheapest(prices);
     lastGeneratedAt = data.generatedAt || null;
+    lastSource = source;
     renderGeneratedAt();
-  }catch(e){
-    ok = false;
+  } else {
     STATION_KEYS.forEach(key => {
       document.getElementById('price-' + key).classList.remove('loading');
       setPill(key, 'error', 'Fehler');
